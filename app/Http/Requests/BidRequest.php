@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Http\Requests\Auth;
+namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Contracts\Validation\Validator;
 
-class LoginRequest extends FormRequest
+class BidRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -16,17 +16,16 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email'    => 'required|email',
-            'password' => 'required|string',
+            'amount' => 'required|numeric|min:1',
         ];
     }
 
     public function messages(): array
     {
         return [
-            'email.required'    => 'Email không được để trống',
-            'email.email'       => 'Email không đúng định dạng',
-            'password.required' => 'Mật khẩu không được để trống',
+            'amount.required' => 'Số tiền bid không được để trống',
+            'amount.numeric'  => 'Số tiền bid phải là số',
+            'amount.min'      => 'Số tiền bid phải lớn hơn 0',
         ];
     }
 
