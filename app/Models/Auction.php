@@ -10,17 +10,18 @@ class Auction extends Model
     use HasFactory;
 
     protected $fillable = [
-        'product_id',
-        'start_price',
-        'current_price',
-        'min_participants',
-        'max_participants',
-        'started_at',
-        'ended_at',
-        'status',
-        'winner_id',
-        'payment_deadline',
-    ];
+    'product_id',
+    'start_price',
+    'current_price',
+    'bid_increment',
+    'min_participants',
+    'max_participants',
+    'started_at',
+    'ended_at',
+    'status',
+    'winner_id',
+    'payment_deadline',
+];
 
     protected $casts = [
         'started_at'       => 'datetime',

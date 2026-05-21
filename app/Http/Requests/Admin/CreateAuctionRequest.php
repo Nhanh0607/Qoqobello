@@ -29,6 +29,7 @@ class CreateAuctionRequest extends FormRequest
                 }
             ],
             'start_price'      => 'required|numeric|min:0',
+            'bid_increment'    => 'required|numeric|min:1',
             'min_participants' => 'required|integer|min:1',
             'max_participants' => 'required|integer|gt:min_participants',
             'started_at'       => 'required|date|after:now',
@@ -43,6 +44,9 @@ class CreateAuctionRequest extends FormRequest
             'product_id.exists'         => 'Sản phẩm không tồn tại',
             'start_price.required'      => 'Giá bắt đầu không được để trống',
             'start_price.numeric'       => 'Giá bắt đầu phải là số',
+            'bid_increment.required'    => 'Bước giá không được để trống',
+            'bid_increment.numeric'     => 'Bước giá phải là số',
+            'bid_increment.min'         => 'Bước giá tối thiểu là 1',
             'min_participants.required' => 'Số người tối thiểu không được để trống',
             'min_participants.min'      => 'Số người tối thiểu phải lớn hơn 0',
             'max_participants.required' => 'Số người tối đa không được để trống',
