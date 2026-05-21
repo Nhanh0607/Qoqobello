@@ -16,7 +16,18 @@ class CreateAuctionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'product_id'       => 'required|exists:products,id',
+            'product_id' => [
+                'required',
+                'exists:products,id',
+                function ($attribute, $value, $fail) {
+                    $exists = \App\Models\Auction::where('product_id', $value)
+                        ->whereIn('status', ['pending', 'active'])
+                        ->exists();
+                    if ($exists) {
+                        $fail('Sản phẩm này đã có phiên đấu giá đang diễn ra');
+                    }
+                }
+            ],
             'start_price'      => 'required|numeric|min:0',
             'min_participants' => 'required|integer|min:1',
             'max_participants' => 'required|integer|gt:min_participants',
