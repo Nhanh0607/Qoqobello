@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AuctionController;
+use App\Http\Controllers\Api\HistoryController;
 use App\Http\Controllers\Api\Admin\ProductController;
 use App\Http\Controllers\Api\Admin\AuctionController as AdminAuctionController;
 use Illuminate\Support\Facades\Route;
@@ -10,8 +11,8 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1/auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login',    [AuthController::class, 'login']);
-    Route::get('/google/redirect',  [AuthController::class, 'googleRedirect']);
-    Route::get('/google/callback',  [AuthController::class, 'googleCallback']);
+    Route::get('/google/redirect', [AuthController::class, 'googleRedirect']);
+    Route::get('/google/callback', [AuthController::class, 'googleCallback']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -20,17 +21,20 @@ Route::prefix('v1/auth')->group(function () {
 
 // User routes
 Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
-    Route::get('/auctions',                [AuctionController::class, 'index']);
-    Route::get('/auctions/{auction}',      [AuctionController::class, 'show']);
-    Route::post('/auctions/{auction}/join',     [AuctionController::class, 'join']);
-    Route::post('/auctions/{auction}/bid',      [AuctionController::class, 'bid']);
-    Route::post('/auctions/{auction}/buy-now',  [AuctionController::class, 'buyNow']);
+    Route::get('/auctions',                    [AuctionController::class, 'index']);
+    Route::get('/auctions/{auction}',          [AuctionController::class, 'show']);
+    Route::post('/auctions/{auction}/join',    [AuctionController::class, 'join']);
+    Route::post('/auctions/{auction}/bid',     [AuctionController::class, 'bid']);
+    Route::post('/auctions/{auction}/buy-now', [AuctionController::class, 'buyNow']);
+
+    // History
+    Route::get('/history', [HistoryController::class, 'index']);
 });
 
 // Admin routes
 Route::prefix('v1/admin')->middleware(['auth:sanctum', 'is_admin'])->group(function () {
-    Route::get('/products',    [ProductController::class, 'index']);
-    Route::post('/products',   [ProductController::class, 'store']);
-    Route::get('/auctions',    [AdminAuctionController::class, 'index']);
-    Route::post('/auctions',   [AdminAuctionController::class, 'store']);
+    Route::get('/products',  [ProductController::class, 'index']);
+    Route::post('/products', [ProductController::class, 'store']);
+    Route::get('/auctions',  [AdminAuctionController::class, 'index']);
+    Route::post('/auctions', [AdminAuctionController::class, 'store']);
 });
