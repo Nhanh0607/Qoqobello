@@ -25,6 +25,7 @@ class User extends Authenticatable
         'avatar',
         'provider',
         'is_admin',
+        'qoqo_balance',
     ];
 
     /**

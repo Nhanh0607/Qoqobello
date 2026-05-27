@@ -1,0 +1,81 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\QoqoTransaction;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class WalletController extends Controller
+{
+    // Xem số coin hiện có
+    public function index(): JsonResponse
+    {
+        $user = auth()->user();
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'balance' => $user->qoqo_balance,
+            ]
+        ]);
+    }
+
+    // Mua coin
+    public function buy(Request $request): JsonResponse
+    {
+        $request->validate([
+            'amount_eur' => 'required|numeric|min:1',
+        ]);
+
+        return DB::transaction(function () use ($request) {
+            $user = auth()->user();
+
+            // 1€ = 100 QOQO
+            $coinsToAdd = $request->amount_eur * 100;
+
+            $balanceBefore = $user->qoqo_balance;
+            $balanceAfter  = $balanceBefore + $coinsToAdd;
+
+            // Cập nhật số dư
+            $user->update(['qoqo_balance' => $balanceAfter]);
+
+            // Lưu transaction
+            QoqoTransaction::create([
+                'user_id'        => $user->id,
+                'type'           => 'purchase',
+                'amount'         => $coinsToAdd,
+                'balance_before' => $balanceBefore,
+                'balance_after'  => $balanceAfter,
+                'description'    => 'Mua ' . $coinsToAdd . ' QOQO với ' . $request->amount_eur . '€',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Mua coin thành công',
+                'data'    => [
+                    'coins_added' => $coinsToAdd,
+                    'balance'     => $balanceAfter,
+                ]
+            ]);
+        });
+    }
+
+    // Lịch sử coin
+    public function transactions(): JsonResponse
+    {
+        $transactions = QoqoTransaction::where('user_id', auth()->id())
+            ->latest()
+            ->paginate(10);
+
+        return response()->json([
+            'success'      => true,
+            'data'         => $transactions->items(),
+            'current_page' => $transactions->currentPage(),
+            'last_page'    => $transactions->lastPage(),
+            'has_more'     => $transactions->hasMorePages(),
+        ]);
+    }
+}

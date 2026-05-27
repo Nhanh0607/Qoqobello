@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AuctionController;
 use App\Http\Controllers\Api\HistoryController;
+use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\Admin\ProductController;
 use App\Http\Controllers\Api\Admin\AuctionController as AdminAuctionController;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +22,7 @@ Route::prefix('v1/auth')->group(function () {
 
 // User routes
 Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
+    // Auctions
     Route::get('/auctions',                    [AuctionController::class, 'index']);
     Route::get('/auctions/{auction}',          [AuctionController::class, 'show']);
     Route::post('/auctions/{auction}/join',    [AuctionController::class, 'join']);
@@ -29,6 +31,11 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
 
     // History
     Route::get('/history', [HistoryController::class, 'index']);
+
+    // Wallet
+    Route::get('/wallet',                  [WalletController::class, 'index']);
+    Route::post('/wallet/buy',             [WalletController::class, 'buy']);
+    Route::get('/wallet/transactions',     [WalletController::class, 'transactions']);
 });
 
 // Admin routes
