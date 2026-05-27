@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BuyCoinsRequest;
 use App\Models\QoqoTransaction;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class WalletController extends Controller
@@ -24,12 +24,8 @@ class WalletController extends Controller
     }
 
     // Mua coin
-    public function buy(Request $request): JsonResponse
+    public function buy(BuyCoinsRequest $request): JsonResponse
     {
-        $request->validate([
-            'amount_eur' => 'required|numeric|min:1',
-        ]);
-
         return DB::transaction(function () use ($request) {
             $user = auth()->user();
 
@@ -39,10 +35,8 @@ class WalletController extends Controller
             $balanceBefore = $user->qoqo_balance;
             $balanceAfter  = $balanceBefore + $coinsToAdd;
 
-            // Cập nhật số dư
             $user->update(['qoqo_balance' => $balanceAfter]);
 
-            // Lưu transaction
             QoqoTransaction::create([
                 'user_id'        => $user->id,
                 'type'           => 'purchase',

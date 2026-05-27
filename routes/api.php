@@ -28,6 +28,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::post('/auctions/{auction}/join',    [AuctionController::class, 'join']);
     Route::post('/auctions/{auction}/bid',     [AuctionController::class, 'bid']);
     Route::post('/auctions/{auction}/buy-now', [AuctionController::class, 'buyNow']);
+    Route::post('/auctions/{auction}/pay', [AuctionController::class, 'pay']);
 
     // History
     Route::get('/history', [HistoryController::class, 'index']);
@@ -36,6 +37,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::get('/wallet',                  [WalletController::class, 'index']);
     Route::post('/wallet/buy',             [WalletController::class, 'buy']);
     Route::get('/wallet/transactions',     [WalletController::class, 'transactions']);
+    
 });
 
 // Admin routes

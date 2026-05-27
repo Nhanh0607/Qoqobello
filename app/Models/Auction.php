@@ -22,6 +22,7 @@ class Auction extends Model
         'status',
         'winner_id',
         'payment_deadline',
+        'is_paid',
     ];
 
     protected $casts = [

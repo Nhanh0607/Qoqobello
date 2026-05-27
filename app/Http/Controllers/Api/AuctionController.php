@@ -7,6 +7,7 @@ use App\Http\Requests\BidRequest;
 use App\Models\Auction;
 use App\Models\AuctionParticipant;
 use App\Models\Bid;
+use App\Models\QoqoTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -85,9 +86,35 @@ class AuctionController extends Controller
                 ], 400);
             }
 
+            // 5. Kiểm tra và trừ coin mở khóa
+            $user = auth()->user();
+            if ($auction->unlock_cost > 0) {
+                if ($user->qoqo_balance < $auction->unlock_cost) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Số coin không đủ để mở khóa phòng. Cần ' . $auction->unlock_cost . ' QOQO',
+                    ], 400);
+                }
+
+                $balanceBefore = $user->qoqo_balance;
+                $balanceAfter  = $balanceBefore - $auction->unlock_cost;
+
+                $user->update(['qoqo_balance' => $balanceAfter]);
+
+                QoqoTransaction::create([
+                    'user_id'        => $user->id,
+                    'type'           => 'unlock',
+                    'amount'         => -$auction->unlock_cost,
+                    'balance_before' => $balanceBefore,
+                    'balance_after'  => $balanceAfter,
+                    'description'    => 'Mở khóa phòng đấu giá #' . $auction->id,
+                    'auction_id'     => $auction->id,
+                ]);
+            }
+
             AuctionParticipant::create([
                 'auction_id' => $auction->id,
-                'user_id'    => auth()->id(),
+                'user_id'    => $user->id,
                 'joined_at'  => now(),
             ]);
 
@@ -102,6 +129,9 @@ class AuctionController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Tham gia phòng đấu giá thành công',
+                'data'    => [
+                    'balance' => $user->fresh()->qoqo_balance,
+                ]
             ]);
         });
     }
@@ -169,15 +199,16 @@ class AuctionController extends Controller
             if ($request->amount < $minValidAmount) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Số tiền bid phải lớn hơn giá hiện tại ít nhất ' . $auction->bid_increment . ' (tối thiểu: ' . $minValidAmount . ')',
+                    'message' => 'Số tiền bid tối thiểu là ' . $minValidAmount . ' QOQO',
                 ], 400);
             }
 
             // 6. Kiểm tra số tiền bid không vượt quá giá cửa hàng
-            if ($request->amount >= $auction->product->store_price) {
+            $maxValidAmount = $auction->product->store_price * 100;
+            if ($request->amount >= $maxValidAmount) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Số tiền bid không được vượt quá giá cửa hàng ' . $auction->product->store_price,
+                    'message' => 'Số tiền bid không được vượt quá ' . $maxValidAmount . ' QOQO',
                 ], 400);
             }
 
@@ -189,7 +220,6 @@ class AuctionController extends Controller
                 'type'       => 'bid',
             ]);
 
-            // Cập nhật giá hiện tại
             $auction->update(['current_price' => $request->amount]);
 
             return response()->json([
@@ -260,27 +290,140 @@ class AuctionController extends Controller
                 ], 400);
             }
 
-            // Lưu record buy_now vào bảng bids
+            // 6. Kiểm tra đủ coin không
+            $user          = auth()->user();
+            $coinsRequired = $auction->product->store_price * 100;
+
+            if ($user->qoqo_balance < $coinsRequired) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Số coin không đủ. Cần ' . $coinsRequired . ' QOQO',
+                ], 400);
+            }
+
+            // 7. Trừ coin
+            $balanceBefore = $user->qoqo_balance;
+            $balanceAfter  = $balanceBefore - $coinsRequired;
+            $user->update(['qoqo_balance' => $balanceAfter]);
+
+            // 8. Lưu transaction
+            QoqoTransaction::create([
+                'user_id'        => $user->id,
+                'type'           => 'payment',
+                'amount'         => -$coinsRequired,
+                'balance_before' => $balanceBefore,
+                'balance_after'  => $balanceAfter,
+                'description'    => 'Mua thẳng sản phẩm ' . $auction->product->title,
+                'auction_id'     => $auction->id,
+            ]);
+
+            // 9. Lưu bid buy_now
             Bid::create([
                 'auction_id' => $auction->id,
-                'user_id'    => auth()->id(),
-                'amount'     => $auction->product->store_price,
+                'user_id'    => $user->id,
+                'amount'     => $coinsRequired,
                 'type'       => 'buy_now',
             ]);
 
             $auction->update([
                 'status'           => 'completed',
-                'winner_id'        => auth()->id(),
-                'current_price'    => $auction->product->store_price,
+                'winner_id'        => $user->id,
+                'current_price'    => $coinsRequired,
                 'payment_deadline' => now()->addDay(),
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Mua thành công với giá ' . $auction->product->store_price,
+                'message' => 'Mua thành công',
                 'data'    => [
-                    'price'            => $auction->product->store_price,
+                    'price'            => $coinsRequired,
+                    'balance'          => $balanceAfter,
                     'payment_deadline' => $auction->payment_deadline,
+                ]
+            ]);
+        });
+    }
+
+    // Thanh toán sau khi thắng đấu giá
+    public function pay(int $auctionId): JsonResponse
+    {
+        return DB::transaction(function () use ($auctionId) {
+            $auction = Auction::lockForUpdate()->find($auctionId);
+
+            if (!$auction) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Phiên đấu giá không tồn tại',
+                ], 404);
+            }
+
+            // 1. Kiểm tra user có phải winner không
+            if ($auction->winner_id !== auth()->id()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn không phải người thắng phiên đấu giá này',
+                ], 403);
+            }
+
+            // 2. Kiểm tra phiên đã completed chưa
+            if ($auction->status !== 'completed') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Phiên đấu giá chưa kết thúc',
+                ], 400);
+            }
+
+            // 3. Kiểm tra đã thanh toán chưa
+            if ($auction->is_paid) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn đã thanh toán rồi',
+                ], 400);
+            }
+
+            // 4. Kiểm tra hết hạn thanh toán chưa
+            if (now()->gt($auction->payment_deadline)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Đã hết hạn thanh toán',
+                ], 400);
+            }
+
+            // 5. Kiểm tra đủ coin không
+            $user          = auth()->user();
+            $coinsRequired = $auction->current_price * 100;
+
+            if ($user->qoqo_balance < $coinsRequired) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Số coin không đủ. Cần ' . $coinsRequired . ' QOQO',
+                ], 400);
+            }
+
+            // 6. Trừ coin
+            $balanceBefore = $user->qoqo_balance;
+            $balanceAfter  = $balanceBefore - $coinsRequired;
+            $user->update(['qoqo_balance' => $balanceAfter]);
+
+            // 7. Lưu transaction
+            QoqoTransaction::create([
+                'user_id'        => $user->id,
+                'type'           => 'payment',
+                'amount'         => -$coinsRequired,
+                'balance_before' => $balanceBefore,
+                'balance_after'  => $balanceAfter,
+                'description'    => 'Thanh toán sản phẩm ' . $auction->product->title,
+                'auction_id'     => $auction->id,
+            ]);
+
+            // 8. Đánh dấu đã thanh toán
+            $auction->update(['is_paid' => true]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Thanh toán thành công',
+                'data'    => [
+                    'balance' => $balanceAfter,
                 ]
             ]);
         });
