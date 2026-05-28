@@ -428,4 +428,61 @@ class AuctionController extends Controller
             ]);
         });
     }
+
+    // Danh sách phiên đấu giá nhóm theo ngày
+    public function byDate(): JsonResponse
+    {
+        $auctions = Auction::with('product')
+            ->whereIn('status', ['pending', 'active'])
+            ->orderBy('started_at')
+            ->get();
+
+        $data = $auctions->map(function ($auction) {
+            $participantCount = $auction->participants()->count();
+
+            // Kiểm tra user đã tham gia chưa
+            $isJoined = AuctionParticipant::where('auction_id', $auction->id)
+                ->where('user_id', auth()->id())
+                ->exists();
+
+            return [
+                'id'               => $auction->id,
+                'product'          => [
+                    'name'        => $auction->product->title,
+                    'image'       => $auction->product->image,
+                    'store_price' => $auction->product->store_price,
+                ],
+                'current_price'    => $auction->current_price,
+                'unlock_cost'      => $auction->unlock_cost,
+                'status'           => $auction->status,
+                'participants'     => $participantCount,
+                'max_participants' => $auction->max_participants,
+                'is_joined'        => $isJoined,
+                'started_at'       => $auction->started_at,
+                'ended_at'         => $auction->ended_at,
+                'date_group'       => $auction->started_at->format('Y-m-d'),
+            ];
+        });
+
+        // Nhóm theo ngày
+        $grouped = $data->groupBy('date_group')->map(function ($items, $date) {
+            $label = match(true) {
+                $date === now()->format('Y-m-d')            => 'Aujourd\'hui',
+                $date === now()->addDay()->format('Y-m-d')  => 'Demain',
+                $date === now()->subDay()->format('Y-m-d')  => 'Hier',
+                default                                      => $date,
+            };
+
+            return [
+                'date'  => $date,
+                'label' => $label,
+                'items' => $items->values(),
+            ];
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'data'    => $grouped,
+        ]);
+    }
 }

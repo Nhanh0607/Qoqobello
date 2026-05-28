@@ -29,6 +29,7 @@ class Auction extends Model
         'started_at'       => 'datetime',
         'ended_at'         => 'datetime',
         'payment_deadline' => 'datetime',
+        'is_paid'          => 'boolean',
     ];
 
     public function product()

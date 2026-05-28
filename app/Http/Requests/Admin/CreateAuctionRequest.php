@@ -28,10 +28,20 @@ class CreateAuctionRequest extends FormRequest
                     }
                 }
             ],
-            'start_price'      => 'required|numeric|min:0',
-            'bid_increment'    => 'required|numeric|min:1',
-            'min_participants' => 'required|integer|min:1',
-            'max_participants' => 'required|integer|gt:min_participants',
+            'start_price'      => 'required|numeric|min:1|max:999999',
+            'bid_increment'    => [
+                'required',
+                'numeric',
+                'min:1',
+                function ($attribute, $value, $fail) {
+                    if ($value >= $this->start_price) {
+                        $fail('Bước giá phải nhỏ hơn giá bắt đầu');
+                    }
+                }
+            ],
+            'unlock_cost'      => 'required|numeric|min:0|max:999999',
+            'min_participants' => 'required|integer|min:1|max:999',
+            'max_participants' => 'required|integer|gt:min_participants|max:9999',
             'started_at'       => 'required|date|after:now',
             'ended_at'         => 'required|date|after:started_at',
         ];
@@ -44,13 +54,21 @@ class CreateAuctionRequest extends FormRequest
             'product_id.exists'         => 'Sản phẩm không tồn tại',
             'start_price.required'      => 'Giá bắt đầu không được để trống',
             'start_price.numeric'       => 'Giá bắt đầu phải là số',
+            'start_price.min'           => 'Giá bắt đầu tối thiểu là 1',
+            'start_price.max'           => 'Giá bắt đầu tối đa là 999,999',
             'bid_increment.required'    => 'Bước giá không được để trống',
             'bid_increment.numeric'     => 'Bước giá phải là số',
             'bid_increment.min'         => 'Bước giá tối thiểu là 1',
+            'unlock_cost.required'      => 'Chi phí mở khóa không được để trống',
+            'unlock_cost.numeric'       => 'Chi phí mở khóa phải là số',
+            'unlock_cost.min'           => 'Chi phí mở khóa không được âm',
+            'unlock_cost.max'           => 'Chi phí mở khóa tối đa là 999,999',
             'min_participants.required' => 'Số người tối thiểu không được để trống',
             'min_participants.min'      => 'Số người tối thiểu phải lớn hơn 0',
+            'min_participants.max'      => 'Số người tối thiểu tối đa là 999',
             'max_participants.required' => 'Số người tối đa không được để trống',
             'max_participants.gt'       => 'Số người tối đa phải lớn hơn số người tối thiểu',
+            'max_participants.max'      => 'Số người tối đa tối đa là 9999',
             'started_at.required'       => 'Thời gian bắt đầu không được để trống',
             'started_at.after'          => 'Thời gian bắt đầu phải sau thời điểm hiện tại',
             'ended_at.required'         => 'Thời gian kết thúc không được để trống',

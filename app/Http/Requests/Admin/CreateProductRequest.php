@@ -17,9 +17,9 @@ class CreateProductRequest extends FormRequest
     {
         return [
             'title'       => 'required|string|max:255',
-            'description' => 'required|string',
-            'image'       => 'required|image|mimes:jpg,jpeg,png|max:2048',
-            'store_price' => 'required|numeric|min:0',
+            'description' => 'required|string|max:5000',
+            'image'       => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'store_price' => 'required|numeric|min:1|max:999999',
         ];
     }
 
@@ -27,14 +27,16 @@ class CreateProductRequest extends FormRequest
     {
         return [
             'title.required'       => 'Tiêu đề không được để trống',
+            'title.max'            => 'Tiêu đề tối đa 255 ký tự',
             'description.required' => 'Mô tả không được để trống',
-            'image.required'       => 'Hình ảnh không được để trống',
+            'description.max'      => 'Mô tả tối đa 5000 ký tự',
             'image.image'          => 'File phải là hình ảnh',
             'image.mimes'          => 'Hình ảnh phải là jpg, jpeg, png',
             'image.max'            => 'Hình ảnh không được vượt quá 2MB',
             'store_price.required' => 'Giá không được để trống',
             'store_price.numeric'  => 'Giá phải là số',
-            'store_price.min'      => 'Giá phải lớn hơn 0',
+            'store_price.min'      => 'Giá tối thiểu là 1',
+            'store_price.max'      => 'Giá tối đa là 999,999',
         ];
     }
 
