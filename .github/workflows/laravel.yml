@@ -1,0 +1,45 @@
+name: Laravel CI Pipeline
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  laravel-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Bước 1: Lấy mã nguồn về
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Bước 2: Cài đặt PHP và các extension cần thiết cho Laravel
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2" # Đổi thành phiên bản PHP dự án bạn đang dùng
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite3, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv
+          coverage: none
+
+      # Bước 3: Cài đặt các thư viện (Vendor)
+      - name: Install Composer Dependencies
+        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+      # Bước 4: Thiết lập file .env cho môi trường Test
+      - name: Prepare Environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # Bước 5: Cấp quyền thư mục (Tránh lỗi Permission Denied khi ghi log/cache)
+      - name: Set Directory Permissions
+        run: chmod -R 777 storage bootstrap/cache
+
+      # Bước 6: Chạy kiểm thử tự động với SQLite
+      - name: Run Tests
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
+        run: php artisan test
