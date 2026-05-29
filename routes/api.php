@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\Admin\ProductController;
 use App\Http\Controllers\Api\Admin\AuctionController as AdminAuctionController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\PinController;
 
 // Auth routes
 Route::prefix('v1/auth')->group(function () {
@@ -54,4 +55,16 @@ Route::prefix('v1/admin')->middleware(['auth:sanctum', 'is_admin'])->group(funct
     Route::post('/products', [ProductController::class, 'store']);
     Route::get('/auctions',  [AdminAuctionController::class, 'index']);
     Route::post('/auctions', [AdminAuctionController::class, 'store']);
+});
+
+// Public PIN route (không cần đăng nhập)
+Route::prefix('v1/pin')->group(function () {
+    Route::post('/login', [PinController::class, 'login']);
+});
+
+// Protected PIN routes (cần đăng nhập)
+Route::prefix('v1/pin')->middleware('auth:sanctum')->group(function () {
+    Route::post('/setup',   [PinController::class, 'setup']);
+    Route::delete('/',      [PinController::class, 'destroy']);
+    Route::post('/unlock',  [PinController::class, 'unlock']);
 });
