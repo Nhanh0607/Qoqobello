@@ -61,7 +61,6 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
 });
 
 // Admin routes
-//test
 Route::prefix('v1/admin')->middleware(['auth:sanctum', 'is_admin'])->group(function () {
     Route::get('/products',  [ProductController::class, 'index']);
     Route::post('/products', [ProductController::class, 'store']);
