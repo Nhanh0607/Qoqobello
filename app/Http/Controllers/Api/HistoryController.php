@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuctionParticipant;
-use App\Models\Bid;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,17 +25,19 @@ class HistoryController extends Controller
 
         $data = $participants->map(function ($participant) {
             $auction = $participant->auction;
-            $product = $auction->product;
 
-            // Số lần user đã bid trong phiên này
+            // Kiểm tra auction và product tồn tại
+            if (!$auction || !$auction->product) {
+                return null;
+            }
+
+            $product  = $auction->product;
             $bidCount = $auction->bids->count();
-
-            // Trạng thái của user trong phiên này
-            $status = $this->getStatus($auction);
+            $status   = $this->getStatus($auction);
 
             return [
-                'auction_id'   => $auction->id,
-                'product'      => [
+                'auction_id'    => $auction->id,
+                'product'       => [
                     'name'  => $product->title,
                     'image' => $product->image,
                 ],
@@ -46,7 +47,7 @@ class HistoryController extends Controller
                 'joined_at'     => $participant->joined_at->format('d/m/Y'),
                 'date_group'    => $participant->joined_at->format('Y-m-d'),
             ];
-        });
+        })->filter()->values();
 
         // Nhóm theo ngày
         $grouped = $data->groupBy('date_group')->map(function ($items, $date) {
@@ -67,22 +68,19 @@ class HistoryController extends Controller
 
     private function getStatus($auction): string
     {
-        // Phiên chưa kết thúc
         if ($auction->status === 'active' || $auction->status === 'pending') {
-            return 'participating'; // Đang tham gia
+            return 'participating';
         }
 
-        // Phiên bị hủy
         if ($auction->status === 'cancelled') {
-            return 'cancelled'; // Hủy
+            return 'cancelled';
         }
 
-        // Phiên đã kết thúc
         if ($auction->status === 'completed') {
             if ($auction->winner_id === auth()->id()) {
-                return 'won'; // Thắng
+                return 'won';
             }
-            return 'lost'; // Thua
+            return 'lost';
         }
 
         return 'unknown';

@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
-    // Danh sách sản phẩm
     public function index(): JsonResponse
     {
         $products = Product::with('creator')->latest()->get();
@@ -21,11 +20,12 @@ class ProductController extends Controller
         ]);
     }
 
-    // Thêm sản phẩm
     public function store(CreateProductRequest $request): JsonResponse
     {
-        // Upload hình ảnh
-        $imagePath = $request->file('image')->store('products', 'public');
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('products', 'public');
+        }
 
         $product = Product::create([
             'title'       => $request->title,

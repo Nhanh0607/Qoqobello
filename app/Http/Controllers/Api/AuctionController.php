@@ -8,6 +8,7 @@ use App\Models\Auction;
 use App\Models\AuctionParticipant;
 use App\Models\Bid;
 use App\Models\QoqoTransaction;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -40,7 +41,7 @@ class AuctionController extends Controller
     public function join(int $auctionId): JsonResponse
     {
         return DB::transaction(function () use ($auctionId) {
-            $auction = Auction::lockForUpdate()->find($auctionId);
+            $auction = Auction::with('product')->lockForUpdate()->find($auctionId);
 
             if (!$auction) {
                 return response()->json([
@@ -87,7 +88,8 @@ class AuctionController extends Controller
             }
 
             // 5. Kiểm tra và trừ coin mở khóa
-            $user = auth()->user();
+            $user = User::lockForUpdate()->find(auth()->id());
+
             if ($auction->unlock_cost > 0) {
                 if ($user->qoqo_balance < $auction->unlock_cost) {
                     return response()->json([
@@ -140,7 +142,7 @@ class AuctionController extends Controller
     public function bid(BidRequest $request, int $auctionId): JsonResponse
     {
         return DB::transaction(function () use ($request, $auctionId) {
-            $auction = Auction::lockForUpdate()->find($auctionId);
+            $auction = Auction::with('product')->lockForUpdate()->find($auctionId);
 
             if (!$auction) {
                 return response()->json([
@@ -162,6 +164,7 @@ class AuctionController extends Controller
                 $auction->update([
                     'status'           => 'completed',
                     'winner_id'        => Bid::where('auction_id', $auction->id)
+                                            ->where('type', 'bid')
                                             ->orderBy('amount', 'desc')
                                             ->first()?->user_id,
                     'payment_deadline' => now()->addDay(),
@@ -226,7 +229,7 @@ class AuctionController extends Controller
                 'success' => true,
                 'message' => 'Đặt giá thành công',
                 'data'    => [
-                    'current_price' => $auction->current_price,
+                    'current_price' => $request->amount,
                 ]
             ]);
         });
@@ -236,7 +239,7 @@ class AuctionController extends Controller
     public function buyNow(int $auctionId): JsonResponse
     {
         return DB::transaction(function () use ($auctionId) {
-            $auction = Auction::lockForUpdate()->find($auctionId);
+            $auction = Auction::with('product')->lockForUpdate()->find($auctionId);
 
             if (!$auction) {
                 return response()->json([
@@ -280,6 +283,7 @@ class AuctionController extends Controller
 
             // 5. Kiểm tra người dùng có đang là người bid cao nhất không
             $highestBid = Bid::where('auction_id', $auction->id)
+                ->where('type', 'bid')
                 ->orderBy('amount', 'desc')
                 ->first();
 
@@ -291,7 +295,7 @@ class AuctionController extends Controller
             }
 
             // 6. Kiểm tra đủ coin không
-            $user          = auth()->user();
+            $user          = User::lockForUpdate()->find(auth()->id());
             $coinsRequired = $auction->product->store_price * 100;
 
             if ($user->qoqo_balance < $coinsRequired) {
@@ -328,17 +332,17 @@ class AuctionController extends Controller
             $auction->update([
                 'status'           => 'completed',
                 'winner_id'        => $user->id,
-                'current_price'    => $coinsRequired,
+                'current_price'    => $auction->product->store_price,
                 'payment_deadline' => now()->addDay(),
+                'is_paid'          => true, // Mua thẳng = đã thanh toán luôn
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Mua thành công',
                 'data'    => [
-                    'price'            => $coinsRequired,
-                    'balance'          => $balanceAfter,
-                    'payment_deadline' => $auction->payment_deadline,
+                    'price'   => $coinsRequired,
+                    'balance' => $balanceAfter,
                 ]
             ]);
         });
@@ -348,7 +352,7 @@ class AuctionController extends Controller
     public function pay(int $auctionId): JsonResponse
     {
         return DB::transaction(function () use ($auctionId) {
-            $auction = Auction::lockForUpdate()->find($auctionId);
+            $auction = Auction::with('product')->lockForUpdate()->find($auctionId);
 
             if (!$auction) {
                 return response()->json([
@@ -389,10 +393,12 @@ class AuctionController extends Controller
                 ], 400);
             }
 
-            // 5. Kiểm tra đủ coin không
-            $user          = auth()->user();
+            // 5. Tính số coin cần thanh toán
+            // current_price lưu bằng € → nhân 100 ra coin
+            $user          = User::lockForUpdate()->find(auth()->id());
             $coinsRequired = $auction->current_price * 100;
 
+            // 6. Kiểm tra đủ coin không
             if ($user->qoqo_balance < $coinsRequired) {
                 return response()->json([
                     'success' => false,
@@ -400,12 +406,12 @@ class AuctionController extends Controller
                 ], 400);
             }
 
-            // 6. Trừ coin
+            // 7. Trừ coin
             $balanceBefore = $user->qoqo_balance;
             $balanceAfter  = $balanceBefore - $coinsRequired;
             $user->update(['qoqo_balance' => $balanceAfter]);
 
-            // 7. Lưu transaction
+            // 8. Lưu transaction
             QoqoTransaction::create([
                 'user_id'        => $user->id,
                 'type'           => 'payment',
@@ -416,7 +422,7 @@ class AuctionController extends Controller
                 'auction_id'     => $auction->id,
             ]);
 
-            // 8. Đánh dấu đã thanh toán
+            // 9. Đánh dấu đã thanh toán
             $auction->update(['is_paid' => true]);
 
             return response()->json([
@@ -438,9 +444,11 @@ class AuctionController extends Controller
             ->get();
 
         $data = $auctions->map(function ($auction) {
+            // Kiểm tra product tồn tại
+            if (!$auction->product) return null;
+
             $participantCount = $auction->participants()->count();
 
-            // Kiểm tra user đã tham gia chưa
             $isJoined = AuctionParticipant::where('auction_id', $auction->id)
                 ->where('user_id', auth()->id())
                 ->exists();
@@ -462,15 +470,14 @@ class AuctionController extends Controller
                 'ended_at'         => $auction->ended_at,
                 'date_group'       => $auction->started_at->format('Y-m-d'),
             ];
-        });
+        })->filter()->values();
 
-        // Nhóm theo ngày
         $grouped = $data->groupBy('date_group')->map(function ($items, $date) {
             $label = match(true) {
-                $date === now()->format('Y-m-d')            => 'Aujourd\'hui',
-                $date === now()->addDay()->format('Y-m-d')  => 'Demain',
-                $date === now()->subDay()->format('Y-m-d')  => 'Hier',
-                default                                      => $date,
+                $date === now()->format('Y-m-d')           => 'Aujourd\'hui',
+                $date === now()->addDay()->format('Y-m-d') => 'Demain',
+                $date === now()->subDay()->format('Y-m-d') => 'Hier',
+                default                                     => $date,
             };
 
             return [

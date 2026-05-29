@@ -9,7 +9,6 @@ use Illuminate\Http\JsonResponse;
 
 class AuctionController extends Controller
 {
-    // Danh sách phiên đấu giá
     public function index(): JsonResponse
     {
         $auctions = Auction::with('product', 'winner')->latest()->get();
@@ -20,13 +19,14 @@ class AuctionController extends Controller
         ]);
     }
 
-    // Tạo phiên đấu giá
     public function store(CreateAuctionRequest $request): JsonResponse
     {
         $auction = Auction::create([
             'product_id'       => $request->product_id,
             'start_price'      => $request->start_price,
             'current_price'    => $request->start_price,
+            'bid_increment'    => $request->bid_increment,
+            'unlock_cost'      => $request->unlock_cost,
             'min_participants' => $request->min_participants,
             'max_participants' => $request->max_participants,
             'started_at'       => $request->started_at,

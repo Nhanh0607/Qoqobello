@@ -5,31 +5,42 @@ use App\Http\Controllers\Api\AuctionController;
 use App\Http\Controllers\Api\HistoryController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\PinController;
 use App\Http\Controllers\Api\Admin\ProductController;
 use App\Http\Controllers\Api\Admin\AuctionController as AdminAuctionController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\PinController;
 
 // Auth routes
 Route::prefix('v1/auth')->group(function () {
-    Route::post('/register',         [AuthController::class, 'register']);
-    Route::post('/login',            [AuthController::class, 'login']);
-    Route::get('/google/redirect',   [AuthController::class, 'googleRedirect']);
-    Route::get('/google/callback',   [AuthController::class, 'googleCallback']);
-    Route::post('/forgot-password',  [AuthController::class, 'forgotPassword']);
-    Route::post('/reset-password',   [AuthController::class, 'resetPassword']);
+    Route::post('/register',        [AuthController::class, 'register']);
+    Route::post('/login',           [AuthController::class, 'login']);
+    Route::get('/google/redirect',  [AuthController::class, 'googleRedirect']);
+    Route::get('/google/callback',  [AuthController::class, 'googleCallback']);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/reset-password',  [AuthController::class, 'resetPassword']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
     });
 });
 
+// PIN routes
+Route::prefix('v1/pin')->group(function () {
+    Route::post('/login', [PinController::class, 'login']);
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/setup',  [PinController::class, 'setup']);
+        Route::delete('/',     [PinController::class, 'destroy']);
+        Route::post('/unlock', [PinController::class, 'unlock']);
+    });
+});
+
 // User routes
 Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     // Profile
-    Route::get('/profile',                    [ProfileController::class, 'index']);
-    Route::put('/profile',                    [ProfileController::class, 'update']);
-    Route::put('/profile/change-password',    [ProfileController::class, 'changePassword']);
+    Route::get('/profile',                 [ProfileController::class, 'index']);
+    Route::put('/profile',                 [ProfileController::class, 'update']);
+    Route::put('/profile/change-password', [ProfileController::class, 'changePassword']);
 
     // Auctions
     Route::get('/auctions/by-date',            [AuctionController::class, 'byDate']);
@@ -55,16 +66,4 @@ Route::prefix('v1/admin')->middleware(['auth:sanctum', 'is_admin'])->group(funct
     Route::post('/products', [ProductController::class, 'store']);
     Route::get('/auctions',  [AdminAuctionController::class, 'index']);
     Route::post('/auctions', [AdminAuctionController::class, 'store']);
-});
-
-// Public PIN route (không cần đăng nhập)
-Route::prefix('v1/pin')->group(function () {
-    Route::post('/login', [PinController::class, 'login']);
-});
-
-// Protected PIN routes (cần đăng nhập)
-Route::prefix('v1/pin')->middleware('auth:sanctum')->group(function () {
-    Route::post('/setup',   [PinController::class, 'setup']);
-    Route::delete('/',      [PinController::class, 'destroy']);
-    Route::post('/unlock',  [PinController::class, 'unlock']);
 });

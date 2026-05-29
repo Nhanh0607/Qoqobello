@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BuyCoinsRequest;
 use App\Models\QoqoTransaction;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
 class WalletController extends Controller
 {
-    // Xem số coin hiện có
     public function index(): JsonResponse
     {
         $user = auth()->user();
@@ -23,15 +23,12 @@ class WalletController extends Controller
         ]);
     }
 
-    // Mua coin
     public function buy(BuyCoinsRequest $request): JsonResponse
     {
         return DB::transaction(function () use ($request) {
-            $user = auth()->user();
+            $user = User::lockForUpdate()->find(auth()->id());
 
-            // 1€ = 100 QOQO
-            $coinsToAdd = $request->amount_eur * 100;
-
+            $coinsToAdd    = $request->amount_eur * 100;
             $balanceBefore = $user->qoqo_balance;
             $balanceAfter  = $balanceBefore + $coinsToAdd;
 
@@ -57,7 +54,6 @@ class WalletController extends Controller
         });
     }
 
-    // Lịch sử coin
     public function transactions(): JsonResponse
     {
         $transactions = QoqoTransaction::where('user_id', auth()->id())
