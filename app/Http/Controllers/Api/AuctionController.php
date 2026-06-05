@@ -424,6 +424,19 @@ class AuctionController extends Controller
 
             // 9. Đánh dấu đã thanh toán
             $auction->update(['is_paid' => true]);
+            // Tạo đơn hàng sau khi thanh toán
+            \App\Models\Order::create([
+                'user_id'      => $user->id,
+                'auction_id'   => $auction->id,
+                'product_id'   => $auction->product->id,
+                'amount'       => $coinsRequired,
+                'status'       => 'pending',
+                'street'       => $user->street,
+                'street_number'=> $user->street_number,
+                'city'         => $user->city,
+                'postal_code'  => $user->postal_code,
+                'country'      => $user->country,
+            ]);
 
             return response()->json([
                 'success' => true,

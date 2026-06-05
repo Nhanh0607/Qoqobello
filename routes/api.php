@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\PinController;
 use App\Http\Controllers\Api\Admin\ProductController;
 use App\Http\Controllers\Api\Admin\AuctionController as AdminAuctionController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
 
 // Auth routes
 Route::prefix('v1/auth')->group(function () {
@@ -58,6 +60,11 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::get('/wallet',              [WalletController::class, 'index']);
     Route::post('/wallet/buy',         [WalletController::class, 'buy']);
     Route::get('/wallet/transactions', [WalletController::class, 'transactions']);
+
+    //oder
+    Route::get('/orders',              [OrderController::class, 'index']);
+    Route::get('/orders/{id}',         [OrderController::class, 'show']);
+    Route::post('/orders/{id}/cancel', [OrderController::class, 'cancel']);
 });
 
 // Admin routes
@@ -66,4 +73,6 @@ Route::prefix('v1/admin')->middleware(['auth:sanctum', 'is_admin'])->group(funct
     Route::post('/products', [ProductController::class, 'store']);
     Route::get('/auctions',  [AdminAuctionController::class, 'index']);
     Route::post('/auctions', [AdminAuctionController::class, 'store']);
+    Route::get('/orders',                        [AdminOrderController::class, 'index']);
+    Route::put('/orders/{id}/status',            [AdminOrderController::class, 'updateStatus']);
 });
